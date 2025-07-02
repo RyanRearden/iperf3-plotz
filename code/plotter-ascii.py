@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 iperf3 Network Performance Data Visualization Tool
 
@@ -11,9 +10,11 @@ graphical representations of network performance metrics including:
 The tool is designed for integration into IETF RFC documentation and
 network performance analysis workflows.
 
-Author: Network Performance Analysis Team
+Author: Ryan Rearden
 License: MIT
 Dependencies: gnuplot (external), python3 standard library
+
+Shoutout to copilot for doing basically everything and making me question if I am really a programmer. 
 """
 
 import configparser
