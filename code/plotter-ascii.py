@@ -87,7 +87,8 @@ class ConfigManager:
             'track_packet_loss': 'true',
             'track_jitter': 'true',
             'track_bandwidth': 'false',
-            'track_retransmissions': 'false'
+            'track_retransmissions': 'false',
+            'consistent_throughput_yaxis': 'true'
         }
     
     def get(self, key: str, fallback: str = '') -> str:
@@ -207,7 +208,7 @@ class IperfDataProcessor:
                 f.write(f"{format_str.format(x)} {format_str.format(y)}\n")
 
     def _generate_gnuplot_script(self, data_file: Path, title: str, 
-                                x_label: str, y_label: str) -> str:
+                                x_label: str, y_label: str, y_min: float = None, y_max: float = None) -> str:
         """
         Generate gnuplot script for ASCII terminal output.
         
@@ -216,6 +217,8 @@ class IperfDataProcessor:
             title: Graph title
             x_label: X-axis label
             y_label: Y-axis label
+            y_min: Minimum y-axis value (optional)
+            y_max: Maximum y-axis value (optional)
             
         Returns:
             Gnuplot script content as string
@@ -254,6 +257,17 @@ class IperfDataProcessor:
             script += 'set format y "%.2g"\n'  # Use compact scientific notation
         else:
             script += f'set ylabel "{y_label}"\n'
+        
+        # Set y-axis range if specified
+        if y_min is not None and y_max is not None:
+            script += f'set yrange [{y_min}:{y_max}]\n'
+            # For large ranges starting from 0, use better tick formatting
+            if y_min == 0 and y_max > 10000:
+                # Force more y-axis ticks for better visualization when data is clustered at top
+                num_ticks = 8  # More ticks to show the scale better
+                tick_interval = y_max / num_ticks
+                script += f'set ytics 0,{tick_interval:.0f},{y_max:.0f}\n'
+                script += 'set format y "%.0f"\n'  # Use whole numbers for better readability
         
         if enable_grid:
             script += 'set grid\n'
@@ -526,6 +540,25 @@ class IperfDataProcessor:
         # Filter datasets based on configuration
         datasets = [(name, x, y, title, xlabel, ylabel) for name, x, y, title, xlabel, ylabel, enabled in all_datasets if enabled]
 
+        # Calculate consistent y-axis range for throughput graphs if enabled
+        consistent_throughput_yaxis = self.config.get_bool('consistent_throughput_yaxis', True)
+        throughput_y_min = None
+        throughput_y_max = None
+        
+        if consistent_throughput_yaxis:
+            # Find max values across both sender and receiver bytes
+            max_sender = max(sender_bytes) if sender_bytes else 0
+            max_receiver = max(receiver_bytes) if receiver_bytes else 0
+            overall_max = max(max_sender, max_receiver)
+            
+            if overall_max > 0:
+                # Always start from 0 and go to max + small padding
+                throughput_y_min = 0
+                throughput_y_max = overall_max * 1.05  # Add 5% padding at top
+                
+                if verbose:
+                    print(f"Using consistent y-axis range for throughput graphs: 0 to {throughput_y_max:,.0f} bytes")
+
         successful_graphs = 0
         
         for metric_name, x_data, y_data, title, x_label, y_label in datasets:
@@ -545,8 +578,17 @@ class IperfDataProcessor:
             # Write data file
             self._write_data_file(data_file, x_data, y_data)
             
+            # Determine y-axis range for this graph
+            y_min = None
+            y_max = None
+            
+            # Apply consistent y-axis scaling for throughput graphs
+            if consistent_throughput_yaxis and metric_name in ["senderBytes", "receiverBytes"] and throughput_y_max is not None:
+                y_min = throughput_y_min
+                y_max = throughput_y_max
+            
             # Generate and execute gnuplot script
-            script = self._generate_gnuplot_script(data_file, title, x_label, y_label)
+            script = self._generate_gnuplot_script(data_file, title, x_label, y_label, y_min, y_max)
             
             if self._execute_gnuplot(script, script_file, output_file, y_label, x_label):
                 successful_graphs += 1

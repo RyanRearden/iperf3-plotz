@@ -4,4 +4,15 @@ This is a plotter for iperf3 JSON files. Probably just for bidirectional UDP ipe
 
 ## Nice iperf3 command
 
-```iperf3 -c IP_ADDR -u -b 0 -A 1 -t 30 -J --bidir > data.json```
+```
+iperf3 -c IPv6_ADDR -u -6 -A 1 -t 30 -J --bidir > data2.json
+
+-c client 
+-u UDP
+-6 use iPV6
+-A core amount
+-t time
+-J json 
+--bidir bidirectional 
+
+```

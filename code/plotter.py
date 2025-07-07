@@ -5,7 +5,7 @@ from matplotlib.offsetbox import TextArea, AnnotationBbox
 import os
 
 
-file_path = 'data/data.json'
+file_path = 'data/data2.json'
 # Extract the JSON filename without extension for naming the output files
 json_name = os.path.splitext(os.path.basename(file_path))[0]
 
